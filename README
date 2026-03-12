@@ -45,6 +45,83 @@ reward-service/
 ├── .env          # Environment variables
 └── requirements.txt
 
+Configuration
+
+
+Edit config/config.yaml to modify:
+
+Reward weights (XP/CHECKOUT/GOLD)
+
+XP per rupee (default: 10)
+
+Max XP per transaction (1000)
+
+Persona multipliers (NEW:1.0, RETURNING:1.5, POWER:2.0)
+
+Daily CAC caps (₹100/₹200/₹500)
+
+📡 API
+
+POST /reward/decide
+Request:
+
+json
+{
+  "txn_id": "txn_123",
+  "user_id": "user_456",
+  "merchant_id": "amazon",
+  "amount": 1000,
+  "txn_type": "PURCHASE",
+  "ts": "2024-03-12T10:00:00"
+}
+Response:
+
+json
+{
+  "decision_id": "uuid",
+  "policy_version": "1.0.0",
+  "reward_type": "GOLD",
+  "reward_value": 5,
+  "xp": 1000,
+  "reason_codes": ["gold_selected", "under_cac_cap"],
+  "meta": {"persona": "RETURNING"}
+}
+GET /health
+
+Service health check.
+
+🧪 Testing
+
+Unit Tests
+bash
+pytest tests/ -v
+# 6/6 tests passing
+Load Test
+bash
+# Start server first
+python tests/test_load.py
+# Results: 186 req/sec, 100% success
+
+⚡ Performance
+
+Single request: 2-5ms
+
+100 concurrent: 1217 req/sec
+
+300 concurrent: 186 req/sec (MacBook)
+
+Cache hit: 2.17ms (2.6x faster)
+
+📊 Assumptions
+
+Transaction IDs are unique per merchant
+
+Redis fallback to in-memory works
+
+Personas are mocked (NEW/RETURNING/POWER)
+
+300 req/sec achievable in production
+
 👤 Author
 
 Hazna Saith
