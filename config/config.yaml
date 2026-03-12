@@ -1,0 +1,264 @@
+# =============================================================================
+# REWARD DECISION SERVICE - COMPLETE CONFIGURATION
+# =============================================================================
+# This file controls ALL business rules for the reward microservice
+# Changes here affect behavior WITHOUT changing code!
+
+# -----------------------------------------------------------------------------
+# POLICY METADATA
+# -----------------------------------------------------------------------------
+policy_version: "1.0.0"                 # Increment when rules change
+policy_name: "Reward Decision Policy"    # Policy identifier
+last_updated: "2024-03-11"               # Track when config was updated
+environment: "development"                # development/staging/production
+
+# =============================================================================
+# SECTION 1: REWARD TYPE WEIGHTS (Required by Assignment)
+# Controls probability distribution of reward types
+# Total MUST equal 1.0 (100%)
+# =============================================================================
+reward_weights:
+  XP: 0.5        # 50% chance - User gets ONLY XP points
+  CHECKOUT: 0.3  # 30% chance - User gets checkout discount
+  GOLD: 0.2      # 20% chance - User gets gold points/cashback
+# Note: These probabilities determine reward_type in API response
+
+# =============================================================================
+# SECTION 2: XP CALCULATION RULES (Required by Assignment)
+# Formula: xp = min(amount * xp_per_rupee * persona_multiplier, max_xp_per_txn)
+# =============================================================================
+xp_per_rupee: 10        # Base XP earned for every 1 rupee spent
+max_xp_per_txn: 1000    # Maximum XP a user can get from one transaction
+
+# =============================================================================
+# SECTION 3: PERSONA CONFIGURATIONS (Required by Assignment)
+# Different user types have different multipliers and daily caps
+# Personas: NEW, RETURNING, POWER
+# =============================================================================
+personas:
+  NEW:
+    description: "New user - first time or low activity"
+    multiplier: 1.0        # No XP bonus (1x)
+    daily_cac_cap: 100     # Maximum ₹100 monetary rewards per day
+    benefits: "Standard rewards, entry-level benefits"
+  
+  RETURNING:
+    description: "Regular user - moderate activity"
+    multiplier: 1.5        # 50% XP bonus
+    daily_cac_cap: 200     # Maximum ₹200 monetary rewards per day
+    benefits: "Bonus XP, higher daily limits"
+  
+  POWER:
+    description: "Power user - high activity, loyal customer"
+    multiplier: 2.0        # 100% XP bonus (double)
+    daily_cac_cap: 500     # Maximum ₹500 monetary rewards per day
+    benefits: "Double XP, highest daily limits, priority support"
+
+# =============================================================================
+# SECTION 4: FEATURE FLAGS (Required by Assignment)
+# Toggle features ON/OFF without code changes
+# =============================================================================
+features:
+  # If TRUE: Always give XP only, no monetary rewards
+  # If FALSE: Normal reward selection based on weights
+  prefer_xp_mode: false
+  
+  # Hours between monetary rewards (cooldown period)
+  # Example: 24 means user can only get monetary reward once per day
+  cooldown_hours: 24
+  
+  # Enable/disable daily CAC cap enforcement
+  # TRUE: Check and enforce daily limits
+  # FALSE: Ignore daily limits (not recommended)
+  enable_cac_cap: true
+  
+  # Enable/disable cooldown period
+  # TRUE: Check if user is in cooldown
+  # FALSE: Allow monetary rewards anytime
+  enable_cooldown: true
+
+# =============================================================================
+# SECTION 5: CACHE SETTINGS
+# Controls how long data is stored in cache (Redis or in-memory)
+# =============================================================================
+cache:
+  # How long to remember decisions for idempotency (TTL)
+  # Prevents duplicate processing of same transaction
+  idempotency_ttl_hours: 24
+  
+  # How long to cache user persona data
+  # Reduces database queries for frequent users
+  persona_ttl_hours: 1
+  
+  # How long to track CAC caps (daily reset)
+  # Automatically resets after this period
+  cac_ttl_hours: 24
+  
+  # Redis connection string (falls back to in-memory if unavailable)
+  redis_url: "redis://localhost:6379"
+  
+  # Cache key prefixes (for organization)
+  key_prefixes:
+    idempotency: "idem"
+    persona: "persona"
+    last_reward: "last_reward"
+    cac: "cac"
+
+# =============================================================================
+# SECTION 6: MONETARY REWARD VALUES
+# Controls how monetary rewards (CHECKOUT/GOLD) are calculated
+# =============================================================================
+monetary_rewards:
+  # Percentage of transaction amount as reward
+  checkout_percentage: 0.01    # 1% of amount = ₹1 for every ₹100 spent
+  gold_percentage: 0.005       # 0.5% of amount = ₹0.50 for every ₹100 spent
+  
+  # Minimum and maximum reward values (in rupees)
+  min_reward_value: 1           # Never give less than ₹1
+  max_reward_value: 500         # Never give more than ₹500 per transaction
+  
+  # Rounding rules
+  rounding: "down"              # 'down', 'up', or 'nearest'
+
+# =============================================================================
+# SECTION 7: BUSINESS RULES
+# Determines which transactions qualify for rewards
+# =============================================================================
+business_rules:
+  # Minimum transaction amount to qualify for ANY rewards
+  min_amount_for_reward: 10     # Transactions under ₹10 get nothing
+  
+  # Transaction types that qualify for rewards
+  qualifying_txn_types:
+    - PURCHASE
+    - PAYMENT
+    - BILL_PAYMENT
+    - ONLINE_PURCHASE
+    - STORE_PURCHASE
+  
+  # Transaction types that NEVER get rewards
+  excluded_txn_types:
+    - REFUND
+    - CANCELLATION
+    - FAILED
+    - VOID
+    - CHARGEBACK
+  
+  # Maximum rewards per user per day (across all transactions)
+  global_daily_cap: 1000        # Absolute maximum any user can get per day
+
+# =============================================================================
+# SECTION 8: PERSONA MOCKING (For Development/Testing)
+# How to assign personas when no real user data exists
+# =============================================================================
+persona_mocking:
+  # Method: "random", "json", "endpoint", "map", or "sequential"
+  # random: Random assignment based on distribution
+  # json: Load from external JSON file
+  # endpoint: Call external mock service
+  # map: Use in-memory dictionary (simplest)
+  # sequential: Rotate through personas in order
+  method: "random"
+  
+  # Default persona for completely new users
+  default_persona: "NEW"
+  
+  # Distribution for random assignment (must sum to 1.0)
+  distribution:
+    NEW: 0.6        # 60% of users are NEW
+    RETURNING: 0.3  # 30% of users are RETURNING
+    POWER: 0.1      # 10% of users are POWER
+  
+  # JSON file path (if method is "json")
+  json_file: "config/personas.json"
+  
+  # Mock endpoint URL (if method is "endpoint")
+  mock_endpoint: "http://localhost:8001/mock/persona/{user_id}"
+  
+  # Cache mocked personas (to maintain consistency)
+  cache_mocked_personas: true
+
+# =============================================================================
+# SECTION 9: IDEMPOTENCY SETTINGS
+# Ensures same request returns same response
+# =============================================================================
+idempotency:
+  # Fields used to create idempotency key (as per assignment)
+  key_fields:
+    - txn_id
+    - user_id
+    - merchant_id
+  
+  
+  # Key separator (for cache keys)
+  key_separator: ":"
+  
+  # Key prefix template
+  key_template: "idem:{txn_id}:{user_id}:{merchant_id}"
+
+# =============================================================================
+# SECTION 10: RESPONSE CODES
+# Standard reason codes for API responses
+# =============================================================================
+reason_codes:
+  # XP-related reasons
+  XP_SELECTED: "XP reward type selected based on weights"
+  XP_PREFERRED: "XP forced by prefer_xp_mode flag"
+  XP_COOLDOWN: "XP forced due to cooldown period"
+  XP_CAP_EXCEEDED: "XP forced because daily CAC cap exceeded"
+  
+  # Monetary reward reasons
+  GOLD_SELECTED: "GOLD reward type selected based on weights"
+  CHECKOUT_SELECTED: "CHECKOUT reward type selected based on weights"
+  
+  # Cap-related reasons
+  UNDER_CAC_CAP: "Within daily CAC cap limit"
+  CAC_CAP_EXCEEDED: "Daily CAC cap exceeded - converted to XP"
+  
+  # Cooldown reasons
+  COOLDOWN_ACTIVE: "Cooldown period active"
+  COOLDOWN_EXPIRED: "Cooldown period expired"
+  
+  # Qualification reasons
+  QUALIFIED: "Transaction qualifies for rewards"
+  NOT_QUALIFIED: "Transaction does not qualify for rewards"
+  MIN_AMOUNT_NOT_MET: "Transaction amount below minimum"
+
+# =============================================================================
+# SECTION 11: LOGGING SETTINGS
+# Controls what gets logged
+# =============================================================================
+logging:
+  level: "INFO"                 # DEBUG, INFO, WARNING, ERROR
+  log_requests: true            # Log incoming requests
+  log_decisions: true           # Log reward decisions
+  log_cache_hits: false         # Log cache hits/misses
+  log_slow_queries: true        # Log slow database queries
+  slow_query_threshold_ms: 500  # Queries slower than this get logged
+
+# =============================================================================
+# SECTION 12: PERFORMANCE SETTINGS
+# Controls performance-related behavior
+# =============================================================================
+performance:
+  # Enable async processing
+  async_mode: true
+  
+  # Request timeouts
+  request_timeout_seconds: 30
+  
+  # Rate limiting (optional)
+  rate_limit_enabled: false
+  rate_limit_requests_per_second: 100
+
+# =============================================================================
+# SECTION 13: DEFAULT VALUES
+# Fallback values if something is missing
+# =============================================================================
+defaults:
+  persona: "NEW"
+  multiplier: 1.0
+  daily_cac_cap: 100
+  reward_type: "XP"
+  reward_value: 0
+  xp: 0

@@ -1,0 +1,53 @@
+# 🎯 Reward Decision Microservice
+
+A low-latency FastAPI microservice that returns deterministic reward outcomes for transactions.
+
+## 📋 Requirements Met
+- ✅ FastAPI-based service
+- ✅ Deterministic reward logic
+- ✅ Idempotent requests with 24h TTL
+- ✅ Config-driven policy (YAML)
+- ✅ Cache-first (Redis + in-memory fallback)
+- ✅ Unit tests (pytest)
+- ✅ Load test (300 concurrent requests)
+
+## 🚀 Quick Setup
+
+### Prerequisites
+- Python 3.9+
+- Redis (optional)
+
+### Installation
+```bash
+# Clone repo
+git clone <your-repo-url>
+cd reward-service
+
+# Setup virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start Redis (optional)
+brew install redis && brew services start redis
+
+# Run service
+uvicorn main:app --reload
+
+📁 Project Structure
+
+reward-service/
+├── app/          # Application code
+├── config/       # YAML configuration
+├── tests/        # Unit & load tests
+├── .env          # Environment variables
+└── requirements.txt
+
+👤 Author
+
+Hazna Saith
+GitHub: Hazna1999
+Email: haznasaithhere@gmail.com
+
